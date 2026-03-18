@@ -6,11 +6,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Telegram webhook
-    if (
-      url.pathname === `/webhook/telegram/${env.TELEGRAM_BOT_TOKEN}` &&
-      request.method === "POST"
-    ) {
+    // Telegram webhook - 使用简单路径
+    if (url.pathname === "/webhook/telegram" && request.method === "POST") {
       return handleTelegramWebhook(request, env);
     }
 
