@@ -61,8 +61,8 @@ const redis = new Redis({
   token: env.REDIS_TOKEN,
 });
 
-// 使用 Hash 存储消息，key 为 msg_id
-await redis.hset("messages", { [msgId]: messageRecord });
+// 使用 Stream 存储消息，支持消费者组
+await redis.xadd("tg_messages", "*", { ...message });
 ```
 
 SDK 底层使用 HTTP REST API，无需 TCP 连接。

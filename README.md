@@ -4,22 +4,22 @@ Cloudflare Worker Telegram Bot 网关。
 
 ## 功能
 
-- 接收 Telegram webhook，写入消息到 Redis Hash
+- 接收 Telegram webhook，写入消息到 Redis Stream
 - 用户白名单控制
 - 自动发送 ack 消息
-- 消息状态追踪（fresh/processing/processed）
+- 支持消费者组模式，多 Backend 并行消费
 
 ## 架构
 
 ```
-用户消息 → Worker 检查白名单 → 发送 ack → 写入 Redis Hash[messages]
-                                                      ↓
-                                                 Backend 轮询
-                                                      ↓
-                                              Backend 直接调用 Telegram API
+用户消息 → Worker 检查白名单 → 发送 ack → XADD → Redis Stream[tg_messages]
+                                                         ↓
+                                                    Backend (消费者组)
+                                                         ↓
+                                                 Backend 调用 Telegram API
 ```
 
-Worker 只负责接收 webhook 和写入消息记录，Telegram API 操作由 Backend 直接执行。
+Worker 只负责接收 webhook 和写入消息到 Stream，Telegram API 操作由 Backend 直接执行。
 
 ## 部署
 
