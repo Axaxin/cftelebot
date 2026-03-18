@@ -7,11 +7,5 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
-# 环境变量 - 在 Cloudflare Dashboard 中覆盖这些值
-# 敏感信息建议在 Dashboard 的 Secrets 中设置
-[vars]
-TELEGRAM_BOT_TOKEN = ""
-REDIS_ENDPOINT = ""
-REDIS_TOKEN = ""
-ALLOW_USERIDS = ""
-API_TOKEN = ""
+# 环境变量在 Cloudflare Dashboard 中配置
+# 变量名：TELEGRAM_BOT_TOKEN, REDIS_ENDPOINT, REDIS_TOKEN, ALLOW_USERIDS, API_TOKEN
