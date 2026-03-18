@@ -9,14 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 架构
 
 ```
-用户消息 → Worker 检查白名单 → 发送 ack → 写入 Redis[backend_queue]
+用户消息 → Worker 检查白名单 → 发送 ack → 写入 Redis Hash[messages]
                                                       ↓
-                                                 Backend 消费
+                                                 Backend 轮询
                                                       ↓
                                               Backend 直接调用 Telegram API
 ```
 
-Worker 只负责接收 webhook 和写入队列，Telegram API 操作由 Backend 直接执行。
+Worker 只负责接收 webhook 和写入消息记录，Telegram API 操作由 Backend 直接执行。
 
 ## 开发命令
 
@@ -61,14 +61,34 @@ const redis = new Redis({
   token: env.REDIS_TOKEN,
 });
 
-await redis.lpush("backend_queue", message);  // 自动 JSON 序列化
+// 使用 Hash 存储消息，key 为 msg_id
+await redis.hset("messages", { [msgId]: messageRecord });
 ```
 
 SDK 底层使用 HTTP REST API，无需 TCP 连接。
 
 ## 核心流程
 
-1. **收到用户消息** → 检查白名单 → 发送 ack → 写入 `backend_queue`
+1. **收到用户消息** → 检查白名单 → 发送 ack → 写入 `messages` Hash
+
+## 消息记录格式
+
+```typescript
+interface Message {
+  msg_id: string;           // 消息唯一标识
+  chat_id: number;          // Telegram chat ID
+  user_id: number;          // Telegram user ID
+  username: string;         // 用户名
+  message_type: string;     // text / photo / document / command
+  content: string;          // 消息内容
+  reply_to_msg_id: number | null;
+  ack_message_id: number | null;  // ack 消息 ID
+  ack_status: "pending" | "edited" | "deleted";
+  message_status: "fresh" | "processing" | "processed";
+  created_at: number;       // 创建时间戳
+  processed_at: number | null;  // 处理时间戳
+}
+```
 
 ## Telegram Webhook 设置
 

@@ -1,5 +1,5 @@
-import { redisLPush } from "../redis/client";
-import type { Env, BackendMessage, TelegramUpdate } from "../types";
+import { saveMessage } from "../redis/client";
+import type { Env, Message, TelegramUpdate } from "../types";
 
 function isUserAllowed(userId: number, allowUserIds: string): boolean {
   if (!allowUserIds) return false;
@@ -44,7 +44,7 @@ export async function handleTelegramWebhook(
   }
 
   // 判断消息类型
-  let messageType: BackendMessage["message_type"] = "text";
+  let messageType: Message["message_type"] = "text";
   let content = "";
 
   if (message.text?.startsWith("/")) {
@@ -78,8 +78,11 @@ export async function handleTelegramWebhook(
     console.error("发送 ack 失败:", e);
   }
 
-  const queueMessage: BackendMessage = {
-    msg_id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  const now = Math.floor(Date.now() / 1000);
+  const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const messageRecord: Message = {
+    msg_id: msgId,
     chat_id: message.chat.id,
     user_id: message.from.id,
     username: message.from.username || "",
@@ -87,10 +90,13 @@ export async function handleTelegramWebhook(
     content: content,
     reply_to_msg_id: message.reply_to_message?.message_id || null,
     ack_message_id: ackMessageId,
-    timestamp: Math.floor(Date.now() / 1000),
+    ack_status: "pending",
+    message_status: "fresh",
+    created_at: now,
+    processed_at: null,
   };
 
-  await redisLPush(env, "backend_queue", queueMessage);
+  await saveMessage(env, messageRecord);
 
   return new Response("OK", { status: 200 });
 }

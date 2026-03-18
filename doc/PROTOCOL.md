@@ -8,7 +8,7 @@
 
 ```
 ┌─────────┐                    ┌─────────┐
-│  Bot    │  ──backend_queue──▶│ Backend │
+│  Bot    │  ──HSET messages──▶│ Backend │
 │ (Worker)│                    │  (VPS)  │
 └─────────┘                    └─────────┘
                                     │
@@ -17,28 +17,30 @@
                               Telegram Server
 ```
 
-Worker 只负责接收 webhook 并写入队列，Telegram API 操作由 Backend 直接执行。
+Worker 只负责接收 webhook 并写入消息记录，Telegram API 操作由 Backend 直接执行。
 
 ---
 
-## Redis 队列
+## Redis 存储
 
-### 队列名称
+### 数据结构
 
-| 队列 | 方向 | 用途 |
-|------|------|------|
-| `backend_queue` | Bot → Backend | 用户消息 |
+| Key | Type | 说明 |
+|-----|------|------|
+| `messages` | Hash | 消息记录，field 为 msg_id |
 
 ### Redis 操作
 
-- 写入：`LPUSH backend_queue json_data`
-- 读取：`RPOP backend_queue`
+- **写入消息**：`HSET messages {msg_id} {json}`
+- **获取单条**：`HGET messages {msg_id}`
+- **获取所有**：`HGETALL messages`
+- **更新消息**：`HSET messages {msg_id} {json}`（覆盖）
 
 ---
 
-## Backend 队列消息格式
+## 消息记录格式
 
-Bot 收到 Telegram 消息后写入，Backend 消费：
+Bot 收到 Telegram 消息后写入，Backend 轮询处理：
 
 ```json
 {
@@ -50,37 +52,45 @@ Bot 收到 Telegram 消息后写入，Backend 消费：
   "content": "用户的输入文本",
   "reply_to_msg_id": null,
   "ack_message_id": 98765,
-  "timestamp": 1710000000
+  "ack_status": "pending",
+  "message_status": "fresh",
+  "created_at": 1710000000,
+  "processed_at": null
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:----:|------|
-| `msg_id` | string | ✓ | 消息唯一标识，格式 `msg_{timestamp}_{random}` |
-| `chat_id` | number | ✓ | Telegram chat ID |
-| `user_id` | number | ✓ | Telegram user ID |
-| `username` | string | | 用户名，可能为空字符串 |
-| `message_type` | string | ✓ | 消息类型 |
-| `content` | string | ✓ | 消息内容 |
-| `reply_to_msg_id` | number \| null | | 回复的消息 ID |
-| `ack_message_id` | number \| null | | Bot 发送的 ack 消息 ID，可编辑或删除 |
-| `timestamp` | number | ✓ | Unix 时间戳（秒） |
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `msg_id` | string | 消息唯一标识，格式 `msg_{timestamp}_{random}` |
+| `chat_id` | number | Telegram chat ID |
+| `user_id` | number | Telegram user ID |
+| `username` | string | 用户名，可能为空字符串 |
+| `message_type` | string | `text` / `command` / `photo` / `document` |
+| `content` | string | 消息内容 |
+| `reply_to_msg_id` | number \| null | 回复的消息 ID |
+| `ack_message_id` | number \| null | Bot 发送的 ack 消息 ID |
+| `ack_status` | string | `pending` / `edited` / `deleted` |
+| `message_status` | string | `fresh` / `processing` / `processed` |
+| `created_at` | number | 创建时间戳（秒） |
+| `processed_at` | number \| null | 处理完成时间戳 |
 
-**ack_message_id 说明：**
+### 字段说明
 
-Bot 收到用户消息后会立即发送一条 ack 消息（`⏳ 收到，正在处理...`），并将该消息的 ID 传入此字段。Backend 可以：
-- **编辑 ack 消息**：调用 `editMessageText` 将 ack 改为处理结果
-- **删除 ack 消息**：调用 `deleteMessage` 删除 ack，再发送新消息
-- **忽略**：直接发送新消息，保留 ack
+**ack_status：**
+- `pending` - 初始状态，ack 消息未被处理
+- `edited` - Backend 已编辑 ack 消息为结果
+- `deleted` - Backend 已删除 ack 消息
 
-**message_type 取值：**
+**message_status：**
+- `fresh` - 新消息，等待处理
+- `processing` - Backend 正在处理
+- `processed` - 处理完成
 
-| 值 | 说明 |
-|----|------|
-| `text` | 纯文本消息 |
-| `command` | 命令（以 `/` 开头） |
-| `photo` | 图片消息，`content` 为 caption |
-| `document` | 文件消息，`content` 为 caption |
+**message_type：**
+- `text` - 纯文本消息
+- `command` - 命令（以 `/` 开头）
+- `photo` - 图片消息，`content` 为 caption
+- `document` - 文件消息，`content` 为 caption
 
 ---
 
@@ -140,9 +150,12 @@ Content-Type: application/json
 ```
 1. 用户发送 "你好"
 2. Bot 发送 ack: "⏳ 收到，正在处理..." (message_id: 456)
-3. Bot → backend_queue: {"msg_id": "msg_xxx", "chat_id": 123, "ack_message_id": 456, ...}
-4. Backend RPOP 获取消息，处理
-5. Backend 调用 editMessageText: {"chat_id": 123, "message_id": 456, "text": "你好！有什么可以帮你的？"}
+3. Bot HSET messages: {..., ack_message_id: 456, ack_status: "pending", message_status: "fresh"}
+4. Backend 轮询发现 fresh 消息
+5. Backend 更新 message_status: "processing"
+6. Backend 处理消息
+7. Backend 调用 editMessageText 编辑 ack 为结果
+8. Backend 更新 ack_status: "edited", message_status: "processed", processed_at: timestamp
 ```
 
 ### 场景 2：复杂处理（删除 ack 发新消息）
@@ -150,10 +163,13 @@ Content-Type: application/json
 ```
 1. 用户发送复杂请求
 2. Bot 发送 ack (message_id: 456)
-3. Bot → backend_queue: 消息含 ack_message_id
-4. Backend 获取消息，执行耗时操作
-5. Backend 调用 deleteMessage: {"chat_id": 123, "message_id": 456}
-6. Backend 调用 sendMessage: {"chat_id": 123, "text": "✅ 完成！\n结果：..."}
+3. Bot HSET messages: {..., ack_message_id: 456, message_status: "fresh"}
+4. Backend 轮询发现 fresh 消息
+5. Backend 更新 message_status: "processing"
+6. Backend 执行耗时操作
+7. Backend 调用 deleteMessage 删除 ack
+8. Backend 调用 sendMessage 发送结果
+9. Backend 更新 ack_status: "deleted", message_status: "processed", processed_at: timestamp
 ```
 
 ---
@@ -165,16 +181,33 @@ Content-Type: application/json
 ```python
 import requests
 import json
+import time
 
 REDIS_ENDPOINT = "https://xxx.upstash.io"
 REDIS_TOKEN = "your-token"
 BOT_TOKEN = "your-bot-token"
 
 def redis_command(command: str, args: list):
-    url = f"{REDIS_ENDPOINT}/{command}/{REDIS_TOKEN}"
-    params = [("args", a) for a in args]
-    resp = requests.post(url, params=params)
+    url = f"{REDIS_ENDPOINT}"
+    headers = {"Authorization": f"Bearer {REDIS_TOKEN}"}
+    resp = requests.post(url, headers=headers, json=[command] + args)
     return resp.json()
+
+def get_all_messages():
+    """获取所有消息"""
+    result = redis_command("HGETALL", ["messages"])
+    if result.get("result"):
+        messages = {}
+        for i in range(0, len(result["result"]), 2):
+            msg_id = result["result"][i]
+            msg_data = json.loads(result["result"][i + 1])
+            messages[msg_id] = msg_data
+        return messages
+    return {}
+
+def update_message(msg_id: str, data: dict):
+    """更新消息"""
+    redis_command("HSET", ["messages", msg_id, json.dumps(data)])
 
 def telegram_api(method: str, data: dict):
     """直接调用 Telegram API"""
@@ -183,20 +216,24 @@ def telegram_api(method: str, data: dict):
     return resp.json()
 
 def process_messages():
-    while True:
-        result = redis_command("rpop", ["backend_queue"])
-        if not result.get("result"):
-            break
+    messages = get_all_messages()
 
-        message = json.loads(result["result"])
-        chat_id = message["chat_id"]
-        ack_msg_id = message.get("ack_message_id")
-        content = message["content"]
+    for msg_id, msg in messages.items():
+        if msg["message_status"] != "fresh":
+            continue
 
-        # 处理消息...
+        # 标记处理中
+        msg["message_status"] = "processing"
+        update_message(msg_id, msg)
+
+        chat_id = msg["chat_id"]
+        ack_msg_id = msg.get("ack_message_id")
+        content = msg["content"]
+
+        # 处理消息
         output = process(content)
 
-        # 方式1：编辑 ack 消息为结果
+        # 编辑 ack 消息
         if ack_msg_id:
             telegram_api("editMessageText", {
                 "chat_id": chat_id,
@@ -204,21 +241,36 @@ def process_messages():
                 "text": f"✅ 完成！\n\n{output}",
                 "parse_mode": "Markdown"
             })
+            msg["ack_status"] = "edited"
         else:
-            # ack 发送失败，直接发新消息
+            # 发送新消息
             telegram_api("sendMessage", {
                 "chat_id": chat_id,
                 "text": output,
                 "parse_mode": "Markdown"
             })
+
+        # 标记完成
+        msg["message_status"] = "processed"
+        msg["processed_at"] = int(time.time())
+        update_message(msg_id, msg)
+
+def process(content: str) -> str:
+    """处理消息内容"""
+    return f"处理结果: {content}"
+
+# 轮询
+while True:
+    process_messages()
+    time.sleep(1)
 ```
 
 ---
 
 ## 注意事项
 
-1. **消息顺序**：使用 LPUSH/RPOP 保证 FIFO
-2. **错误处理**：Backend 应实现 Telegram API 调用重试逻辑
-3. **超时**：Telegram webhook 要求 5 秒内响应，Bot 收到消息立即返回 200
-4. **并发**：Backend 可多进程消费，但同一 chat_id 的消息建议串行处理
+1. **消息去重**：使用 msg_id 作为 Hash field，天然去重
+2. **状态管理**：Backend 负责更新 message_status 和 ack_status
+3. **并发安全**：更新消息前先检查状态，避免重复处理
+4. **错误处理**：Backend 应实现 Telegram API 调用重试逻辑
 5. **API 限流**：Telegram API 有速率限制，注意控制调用频率

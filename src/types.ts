@@ -6,8 +6,8 @@ export interface Env {
   ALLOW_USERIDS: string; // 逗号分隔的用户 ID
 }
 
-// ============ Backend 队列消息 ============
-export interface BackendMessage {
+// ============ 消息记录 ============
+export interface Message {
   msg_id: string;
   chat_id: number;
   user_id: number;
@@ -15,8 +15,11 @@ export interface BackendMessage {
   message_type: "text" | "photo" | "document" | "command";
   content: string;
   reply_to_msg_id: number | null;
-  ack_message_id: number | null; // ack 消息的 message_id，backend 可编辑/删除
-  timestamp: number;
+  ack_message_id: number | null;
+  ack_status: "pending" | "edited" | "deleted";
+  message_status: "fresh" | "processing" | "processed";
+  created_at: number;
+  processed_at: number | null;
 }
 
 // ============ Telegram Webhook Update ============

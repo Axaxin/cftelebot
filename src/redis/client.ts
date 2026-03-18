@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis/cloudflare";
-import type { Env } from "../types";
+import type { Env, Message } from "../types";
 
 function getRedis(env: Env): Redis {
   return new Redis({
@@ -8,11 +8,9 @@ function getRedis(env: Env): Redis {
   });
 }
 
-export async function redisLPush(
-  env: Env,
-  key: string,
-  value: object
-): Promise<void> {
+const MESSAGE_HASH_KEY = "messages";
+
+export async function saveMessage(env: Env, message: Message): Promise<void> {
   const redis = getRedis(env);
-  await redis.lpush(key, value);
+  await redis.hset(MESSAGE_HASH_KEY, { [message.msg_id]: message });
 }
