@@ -100,5 +100,4 @@ curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
 
 ## 文档
 
-- `doc/DESIGN.md` - 设计文档
-- `doc/PROTOCOL.md` - 通信协议（供 Backend 参考）
+- `doc/DESIGN.md` - 设计文档，包含消息格式和 Backend 集成示例
