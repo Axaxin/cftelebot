@@ -46,15 +46,28 @@ Worker 只负责接收 webhook 和写入消息记录，Telegram API 操作由 Ba
   "user_id": 987654321,
   "username": "john_doe",
   "message_type": "text",
-  "content": "用户的输入文本",
-  "reply_to_msg_id": null,
+  "created_at": 1710000000,
   "ack_message_id": 456,
   "ack_status": "pending",
   "message_status": "fresh",
-  "created_at": 1710000000,
-  "processed_at": null
+  "processed_at": null,
+  "raw_message": { ... }
 }
 ```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `msg_id` | string | 消息唯一标识，格式 `msg_{timestamp}_{random}` |
+| `chat_id` | number | Telegram chat ID |
+| `user_id` | number | Telegram user ID |
+| `username` | string | 用户名，可能为空 |
+| `message_type` | string | text/command/photo/video/audio/document/animation/voice/video_note/sticker/contact/location/venue/poll/dice/game/other |
+| `created_at` | number | 收到消息的时间戳（秒） |
+| `ack_message_id` | number \| null | Bot 发送的 ack 消息 ID |
+| `ack_status` | string | `pending` / `edited` / `deleted` |
+| `message_status` | string | `fresh` / `processing` / `processed` |
+| `processed_at` | number \| null | 处理完成时间戳 |
+| `raw_message` | object | 完整的 Telegram Message 对象 |
 
 ## 文档
 

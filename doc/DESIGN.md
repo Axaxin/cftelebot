@@ -95,13 +95,12 @@ Value: Message JSON
   "user_id": 987654321,
   "username": "john_doe",
   "message_type": "text",
-  "content": "用户的输入文本",
-  "reply_to_msg_id": null,
+  "created_at": 1710000000,
   "ack_message_id": 456,
   "ack_status": "pending",
   "message_status": "fresh",
-  "created_at": 1710000000,
-  "processed_at": null
+  "processed_at": null,
+  "raw_message": { ... }
 }
 ```
 
@@ -111,14 +110,13 @@ Value: Message JSON
 | `chat_id` | number | Telegram chat ID |
 | `user_id` | number | Telegram user ID |
 | `username` | string | 用户名，可能为空 |
-| `message_type` | string | `text` / `photo` / `document` / `command` |
-| `content` | string | 消息内容 |
-| `reply_to_msg_id` | number \| null | 回复的消息 ID |
+| `message_type` | string | text/command/photo/video/audio/document/animation/voice/video_note/sticker/contact/location/venue/poll/dice/game/other |
+| `created_at` | number | 收到消息的时间戳（秒） |
 | `ack_message_id` | number \| null | Bot 发送的 ack 消息 ID |
 | `ack_status` | string | `pending` / `edited` / `deleted` |
 | `message_status` | string | `fresh` / `processing` / `processed` |
-| `created_at` | number | 创建时间戳（秒） |
 | `processed_at` | number \| null | 处理完成时间戳 |
+| `raw_message` | object | 完整的 Telegram Message 对象 |
 
 > 注：Bot 收到用户消息后会立即发送 ack 消息（`⏳ 收到，正在处理...`），Backend 可选择编辑或删除该消息。
 

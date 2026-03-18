@@ -75,18 +75,22 @@ SDK 底层使用 HTTP REST API，无需 TCP 连接。
 
 ```typescript
 interface Message {
+  // 核心字段（用于索引/查询）
   msg_id: string;           // 消息唯一标识
   chat_id: number;          // Telegram chat ID
   user_id: number;          // Telegram user ID
   username: string;         // 用户名
-  message_type: string;     // text / photo / document / command
-  content: string;          // 消息内容
-  reply_to_msg_id: number | null;
+  message_type: string;     // text/command/photo/video/audio/document/animation/voice/video_note/sticker/contact/location/venue/poll/dice/game/other
+  created_at: number;       // 收到消息的时间戳
+
+  // 自定义状态字段
   ack_message_id: number | null;  // ack 消息 ID
   ack_status: "pending" | "edited" | "deleted";
   message_status: "fresh" | "processing" | "processed";
-  created_at: number;       // 创建时间戳
-  processed_at: number | null;  // 处理时间戳
+  processed_at: number | null;    // 处理时间戳
+
+  // 原始 Telegram Message
+  raw_message: object;      // 完整的 Telegram Message 对象
 }
 ```
 

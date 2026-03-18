@@ -1,10 +1,32 @@
 import { saveMessage } from "../redis/client";
-import type { Env, Message, TelegramUpdate } from "../types";
+import type { Env, Message, MessageType, TelegramUpdate } from "../types";
 
 function isUserAllowed(userId: number, allowUserIds: string): boolean {
   if (!allowUserIds) return false;
   const allowed = allowUserIds.split(",").map((id) => parseInt(id.trim(), 10));
   return allowed.includes(userId);
+}
+
+// 根据消息内容判断类型
+function getMessageType(message: TelegramUpdate["message"]): MessageType {
+  if (!message) return "other";
+  if (message.text?.startsWith("/")) return "command";
+  if (message.text) return "text";
+  if (message.photo) return "photo";
+  if (message.video) return "video";
+  if (message.audio) return "audio";
+  if (message.document) return "document";
+  if (message.animation) return "animation";
+  if (message.voice) return "voice";
+  if (message.video_note) return "video_note";
+  if (message.sticker) return "sticker";
+  if (message.contact) return "contact";
+  if (message.location) return "location";
+  if (message.venue) return "venue";
+  if (message.poll) return "poll";
+  if (message.dice) return "dice";
+  if (message.game) return "game";
+  return "other";
 }
 
 const ACK_MESSAGE = "⏳ 收到，正在处理...";
@@ -36,7 +58,12 @@ export async function handleTelegramWebhook(
   }
 
   const message = update.message;
-  const userId = message.from.id;
+  const userId = message.from?.id;
+
+  // 消息必须有发送者
+  if (!userId) {
+    return new Response("OK", { status: 200 });
+  }
 
   // 检查用户白名单
   if (!isUserAllowed(userId, env.ALLOW_USERIDS)) {
@@ -44,24 +71,7 @@ export async function handleTelegramWebhook(
   }
 
   // 判断消息类型
-  let messageType: Message["message_type"] = "text";
-  let content = "";
-
-  if (message.text?.startsWith("/")) {
-    messageType = "command";
-    content = message.text;
-  } else if (message.text) {
-    messageType = "text";
-    content = message.text;
-  } else if (message.photo) {
-    messageType = "photo";
-    content = message.caption || "";
-  } else if (message.document) {
-    messageType = "document";
-    content = message.caption || "";
-  } else {
-    return new Response("OK", { status: 200 });
-  }
+  const messageType = getMessageType(message);
 
   // 发送 ack 消息
   let ackMessageId: number | null = null;
@@ -82,18 +92,20 @@ export async function handleTelegramWebhook(
   const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 8)}`;
 
   const messageRecord: Message = {
+    // 核心字段
     msg_id: msgId,
     chat_id: message.chat.id,
-    user_id: message.from.id,
-    username: message.from.username || "",
+    user_id: userId,
+    username: message.from?.username || "",
     message_type: messageType,
-    content: content,
-    reply_to_msg_id: message.reply_to_message?.message_id || null,
+    created_at: now,
+    // 自定义状态字段
     ack_message_id: ackMessageId,
     ack_status: "pending",
     message_status: "fresh",
-    created_at: now,
     processed_at: null,
+    // 原始消息
+    raw_message: message,
   };
 
   await saveMessage(env, messageRecord);
