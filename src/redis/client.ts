@@ -5,7 +5,6 @@ async function redisCommand(
   command: string,
   args: string[]
 ): Promise<{ result?: unknown; error?: string }> {
-  // Upstash REST API 使用 URL 路径格式
   const path = args.map(encodeURIComponent).join("/");
   const url = `${env.REDIS_ENDPOINT}/${command}/${path}`;
 
