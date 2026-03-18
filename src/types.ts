@@ -56,3 +56,29 @@ export interface TelegramApiResponse {
   description?: string;
   error_code?: number;
 }
+
+// ============ Telegram Webhook Update ============
+export interface TelegramUpdate {
+  message?: TelegramMessage;
+}
+
+export interface TelegramMessage {
+  message_id: number;
+  from: {
+    id: number;
+    username?: string;
+    [key: string]: unknown;
+  };
+  chat: {
+    id: number;
+    [key: string]: unknown;
+  };
+  text?: string;
+  photo?: unknown;
+  document?: unknown;
+  caption?: string;
+  reply_to_message?: {
+    message_id: number;
+    [key: string]: unknown;
+  };
+}

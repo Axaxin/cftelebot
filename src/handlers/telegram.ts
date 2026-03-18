@@ -1,6 +1,6 @@
 import { redisLPush } from "../redis/client";
 import { telegramSendMessage } from "../telegram/api";
-import type { Env, BackendMessage } from "../types";
+import type { Env, BackendMessage, TelegramUpdate } from "../types";
 
 function isUserAllowed(userId: number, allowUserIds: string): boolean {
   if (!allowUserIds) return false;
@@ -14,7 +14,7 @@ export async function handleTelegramWebhook(
   request: Request,
   env: Env
 ): Promise<Response> {
-  const update = await request.json();
+  const update: TelegramUpdate = await request.json();
 
   if (!update.message) {
     return new Response("OK", { status: 200 });

@@ -1,6 +1,6 @@
 import { redisRPop } from "../redis/client";
 import { executeTelegramAction } from "../telegram/api";
-import type { Env } from "../types";
+import type { Env, WorkerTask } from "../types";
 
 export async function handleWakeup(env: Env): Promise<Response> {
   let processed = 0;
@@ -8,7 +8,7 @@ export async function handleWakeup(env: Env): Promise<Response> {
 
   // 循环处理所有待执行的任务
   while (true) {
-    const task = await redisRPop(env, "worker_queue");
+    const task = await redisRPop<WorkerTask>(env, "worker_queue");
     if (!task) break;
 
     try {

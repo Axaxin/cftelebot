@@ -53,20 +53,23 @@ npm run tail     # 查看日志
 | `/wakeup` | POST | Bearer token | Backend 唤醒 Worker |
 | `/health` | GET | - | 健康检查 |
 
-## Upstash Redis REST API
+## Upstash Redis
 
-使用 URL 路径格式，不是 JSON body：
+使用 `@upstash/redis` SDK，专为 Cloudflare Workers 优化：
 
-```
-GET {REDIS_ENDPOINT}/{command}/{arg1}/{arg2}/...
-Authorization: Bearer {REDIS_TOKEN}
+```typescript
+import { Redis } from "@upstash/redis/cloudflare";
+
+const redis = new Redis({
+  url: env.REDIS_ENDPOINT,
+  token: env.REDIS_TOKEN,
+});
+
+await redis.lpush("backend_queue", message);  // 自动 JSON 序列化
+const task = await redis.rpop("worker_queue"); // 自动 JSON 反序列化
 ```
 
-示例：
-```
-GET https://xxx.upstash.io/lpush/backend_queue/{json_data}
-GET https://xxx.upstash.io/rpop/backend_queue
-```
+SDK 底层使用 HTTP REST API，无需 TCP 连接。
 
 ## 核心流程
 

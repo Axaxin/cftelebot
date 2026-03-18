@@ -1,21 +1,11 @@
+import { Redis } from "@upstash/redis/cloudflare";
 import type { Env } from "../types";
 
-async function redisCommand(
-  env: Env,
-  command: string,
-  args: string[]
-): Promise<{ result?: unknown; error?: string }> {
-  const path = args.map(encodeURIComponent).join("/");
-  const url = `${env.REDIS_ENDPOINT}/${command}/${path}`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${env.REDIS_TOKEN}`,
-    },
+function getRedis(env: Env): Redis {
+  return new Redis({
+    url: env.REDIS_ENDPOINT,
+    token: env.REDIS_TOKEN,
   });
-
-  return response.json();
 }
 
 export async function redisLPush(
@@ -23,19 +13,14 @@ export async function redisLPush(
   key: string,
   value: object
 ): Promise<void> {
-  const result = await redisCommand(env, "lpush", [key, JSON.stringify(value)]);
-  if (result.error) {
-    throw new Error(result.error);
-  }
+  const redis = getRedis(env);
+  await redis.lpush(key, value);
 }
 
 export async function redisRPop<T = unknown>(
   env: Env,
   key: string
 ): Promise<T | null> {
-  const result = await redisCommand(env, "rpop", [key]);
-  if (result.result) {
-    return JSON.parse(result.result as string);
-  }
-  return null;
+  const redis = getRedis(env);
+  return redis.rpop<T>(key);
 }

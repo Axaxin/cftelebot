@@ -1,4 +1,4 @@
-import type { WorkerTask, TelegramApiResponse } from "../types";
+import type { WorkerTask, TelegramApiResponse, SendMessageData, EditMessageData, DeleteMessageData } from "../types";
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
@@ -10,13 +10,13 @@ export async function executeTelegramAction(
 
   switch (action) {
     case "send_message":
-      return telegramSendMessage(token, chat_id, data);
+      return telegramSendMessage(token, chat_id, data as SendMessageData);
 
     case "edit_message":
-      return telegramEditMessage(token, chat_id, data);
+      return telegramEditMessage(token, chat_id, data as EditMessageData);
 
     case "delete_message":
-      return telegramDeleteMessage(token, chat_id, data);
+      return telegramDeleteMessage(token, chat_id, data as DeleteMessageData);
 
     default:
       return { ok: false, description: `Unknown action: ${action}` };
