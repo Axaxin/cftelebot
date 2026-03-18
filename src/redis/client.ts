@@ -4,8 +4,11 @@ async function redisCommand(
   env: Env,
   command: string,
   args: (string | number)[]
-): Promise<{ result?: unknown }> {
+): Promise<{ result?: unknown; error?: string }> {
   const url = `${env.REDIS_ENDPOINT}/${command}`;
+
+  console.log(`Redis command: ${command}, args: ${JSON.stringify(args)}`);
+  console.log(`Redis endpoint: ${env.REDIS_ENDPOINT}`);
 
   const response = await fetch(url, {
     method: "POST",
@@ -16,7 +19,9 @@ async function redisCommand(
     body: JSON.stringify(args),
   });
 
-  return response.json();
+  const result = await response.json();
+  console.log(`Redis response: ${JSON.stringify(result)}`);
+  return result;
 }
 
 export async function redisLPush(
@@ -24,7 +29,10 @@ export async function redisLPush(
   key: string,
   value: object
 ): Promise<void> {
-  await redisCommand(env, "lpush", [key, JSON.stringify(value)]);
+  const result = await redisCommand(env, "lpush", [key, JSON.stringify(value)]);
+  if (result.error) {
+    throw new Error(result.error);
+  }
 }
 
 export async function redisRPop<T = unknown>(
