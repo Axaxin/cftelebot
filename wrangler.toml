@@ -1,0 +1,11 @@
+name = "cftelebot"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 环境变量在 Cloudflare Dashboard 中配置：
+# TELEGRAM_BOT_TOKEN - Telegram Bot Token
+# REDIS_ENDPOINT - Upstash Redis endpoint (如 https://xxx.upstash.io)
+# REDIS_TOKEN - Upstash Redis token
+# ALLOW_USERIDS - 允许使用的用户 ID，逗号分隔 (如 "123456,789012")
+# API_TOKEN - 唤醒端点鉴权 token
