@@ -14,20 +14,27 @@ export async function handleTelegramWebhook(
   request: Request,
   env: Env
 ): Promise<Response> {
+  console.log("收到 webhook 请求");
+
   const update = await request.json();
 
   if (!update.message) {
+    console.log("无消息内容");
     return new Response("OK", { status: 200 });
   }
 
   const message = update.message;
   const userId = message.from.id;
 
+  console.log(`用户 ID: ${userId}, ALLOW_USERIDS: ${env.ALLOW_USERIDS}`);
+
   // 检查用户白名单
   if (!isUserAllowed(userId, env.ALLOW_USERIDS)) {
     console.log(`Unauthorized user: ${userId}`);
     return new Response("OK", { status: 200 }); // 静默忽略
   }
+
+  console.log("用户验证通过");
 
   // 判断消息类型
   let messageType: BackendMessage["message_type"] = "text";
@@ -49,12 +56,16 @@ export async function handleTelegramWebhook(
     return new Response("OK", { status: 200 }); // 忽略其他类型
   }
 
+  console.log(`消息类型: ${messageType}, 内容: ${content}`);
+
   // 发送 ack 消息
   let ackMessageId: number | null = null;
   try {
+    console.log("发送 ack 消息...");
     const ackResult = await telegramSendMessage(env.TELEGRAM_BOT_TOKEN, message.chat.id, {
       text: ACK_MESSAGE,
     });
+    console.log(`ack 结果: ${JSON.stringify(ackResult)}`);
     if (ackResult.ok && ackResult.result?.message_id) {
       ackMessageId = ackResult.result.message_id;
     }
@@ -76,7 +87,13 @@ export async function handleTelegramWebhook(
   };
 
   // LPUSH 到 backend_queue
-  await redisLPush(env, "backend_queue", queueMessage);
+  console.log(`写入 Redis: ${JSON.stringify(queueMessage)}`);
+  try {
+    await redisLPush(env, "backend_queue", queueMessage);
+    console.log("写入 Redis 成功");
+  } catch (e) {
+    console.error("写入 Redis 失败:", e);
+  }
 
   return new Response("OK", { status: 200 });
 }
