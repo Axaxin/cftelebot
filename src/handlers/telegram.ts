@@ -1,5 +1,4 @@
 import { redisLPush } from "../redis/client";
-import { telegramSendMessage } from "../telegram/api";
 import type { Env, BackendMessage, TelegramUpdate } from "../types";
 
 function isUserAllowed(userId: number, allowUserIds: string): boolean {
@@ -9,6 +8,22 @@ function isUserAllowed(userId: number, allowUserIds: string): boolean {
 }
 
 const ACK_MESSAGE = "⏳ 收到，正在处理...";
+
+async function sendAckMessage(
+  botToken: string,
+  chatId: number,
+  text: string
+): Promise<{ ok: boolean; result?: { message_id?: number } }> {
+  const response = await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    }
+  );
+  return response.json();
+}
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -51,9 +66,11 @@ export async function handleTelegramWebhook(
   // 发送 ack 消息
   let ackMessageId: number | null = null;
   try {
-    const ackResult = await telegramSendMessage(env.TELEGRAM_BOT_TOKEN, message.chat.id, {
-      text: ACK_MESSAGE,
-    });
+    const ackResult = await sendAckMessage(
+      env.TELEGRAM_BOT_TOKEN,
+      message.chat.id,
+      ACK_MESSAGE
+    );
     if (ackResult.ok && ackResult.result?.message_id) {
       ackMessageId = ackResult.result.message_id;
     }

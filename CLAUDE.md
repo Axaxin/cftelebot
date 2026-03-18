@@ -13,12 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
                                                       ↓
                                                  Backend 消费
                                                       ↓
-                                           写入 Redis[worker_queue]
-                                                      ↓
-                                           POST /wakeup 唤醒 Worker
-                                                      ↓
-Telegram ← Worker 从 worker_queue 取任务 → 执行 Telegram API
+                                              Backend 直接调用 Telegram API
 ```
+
+Worker 只负责接收 webhook 和写入队列，Telegram API 操作由 Backend 直接执行。
 
 ## 开发命令
 
@@ -41,7 +39,6 @@ npm run tail     # 查看日志
 | `REDIS_ENDPOINT` | ✓ | Upstash Redis endpoint (如 `https://xxx.upstash.io`) |
 | `REDIS_TOKEN` | ✓ | Upstash Redis token |
 | `ALLOW_USERIDS` | ✓ | 白名单用户 ID，逗号分隔 (如 `123456,789012`) |
-| `API_TOKEN` | ✓ | 唤醒端点鉴权 token |
 
 **注意：** `ALLOW_USERIDS` 未设置时，Bot 不回复任何消息。
 
@@ -50,7 +47,6 @@ npm run tail     # 查看日志
 | 端点 | 方法 | 鉴权 | 说明 |
 |------|------|------|------|
 | `/webhook/telegram` | POST | - | Telegram webhook |
-| `/wakeup` | POST | Bearer token | Backend 唤醒 Worker |
 | `/health` | GET | - | 健康检查 |
 
 ## Upstash Redis
@@ -66,7 +62,6 @@ const redis = new Redis({
 });
 
 await redis.lpush("backend_queue", message);  // 自动 JSON 序列化
-const task = await redis.rpop("worker_queue"); // 自动 JSON 反序列化
 ```
 
 SDK 底层使用 HTTP REST API，无需 TCP 连接。
@@ -74,7 +69,6 @@ SDK 底层使用 HTTP REST API，无需 TCP 连接。
 ## 核心流程
 
 1. **收到用户消息** → 检查白名单 → 发送 ack → 写入 `backend_queue`
-2. **被唤醒** → 从 `worker_queue` 取任务 → 执行 Telegram API (send/edit/delete)
 
 ## Telegram Webhook 设置
 

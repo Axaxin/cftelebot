@@ -16,11 +16,3 @@ export async function redisLPush(
   const redis = getRedis(env);
   await redis.lpush(key, value);
 }
-
-export async function redisRPop<T = unknown>(
-  env: Env,
-  key: string
-): Promise<T | null> {
-  const redis = getRedis(env);
-  return redis.rpop<T>(key);
-}
