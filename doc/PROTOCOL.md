@@ -274,3 +274,74 @@ while True:
 3. **并发安全**：更新消息前先检查状态，避免重复处理
 4. **错误处理**：Backend 应实现 Telegram API 调用重试逻辑
 5. **API 限流**：Telegram API 有速率限制，注意控制调用频率
+
+---
+
+## 实际操作示例
+
+以下是一个完整的处理流程示例：
+
+### 1. Worker 收到消息后写入 Redis
+
+```bash
+# 查看 Redis 中的消息
+curl -X POST \
+  -H "Authorization: Bearer {REDIS_TOKEN}" \
+  "https://xxx.upstash.io" \
+  -d '["HGETALL", "messages"]'
+```
+
+返回：
+```json
+{
+  "result": [
+    "msg_1773844739_opuwcd",
+    "{\"msg_id\":\"msg_1773844739_opuwcd\",\"chat_id\":6493520309,\"user_id\":6493520309,\"username\":\"soranokawa\",\"message_type\":\"text\",\"content\":\"哟哟哟\",\"reply_to_msg_id\":null,\"ack_message_id\":282,\"ack_status\":\"pending\",\"message_status\":\"fresh\",\"created_at\":1773844739,\"processed_at\":null}"
+  ]
+}
+```
+
+### 2. Backend 编辑 ack 消息
+
+```bash
+curl -X POST "https://api.telegram.org/bot{BOT_TOKEN}/editMessageText" \
+  -H "Content-Type: application/json" \
+  -d '{"chat_id": 6493520309, "message_id": 282, "text": "✅ 已处理：哟哟哟", "parse_mode": "Markdown"}'
+```
+
+返回：
+```json
+{"ok": true, "result": {"message_id": 282, "text": "✅ 已处理：哟哟哟", ...}}
+```
+
+### 3. Backend 更新 Redis 状态
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer {REDIS_TOKEN}" \
+  "https://xxx.upstash.io" \
+  -d '["HSET", "messages", "msg_1773844739_opuwcd", "{\"msg_id\":\"msg_1773844739_opuwcd\",...,\"ack_status\":\"edited\",\"message_status\":\"processed\",\"processed_at\":1773844900}"]'
+```
+
+### 4. 验证更新结果
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer {REDIS_TOKEN}" \
+  "https://xxx.upstash.io" \
+  -d '["HGET", "messages", "msg_1773844739_opuwcd"]'
+```
+
+返回：
+```json
+{
+  "result": "{\"msg_id\":\"msg_1773844739_opuwcd\",\"ack_status\":\"edited\",\"message_status\":\"processed\",\"processed_at\":1773844900,...}"
+}
+```
+
+**状态变更：**
+| 字段 | 旧值 | 新值 |
+|------|------|------|
+| `ack_status` | `pending` | `edited` |
+| `message_status` | `fresh` | `processed` |
+| `processed_at` | `null` | `1773844900` |

@@ -4,7 +4,7 @@
 
 **本项目只开发 CF Worker**，与后端解耦。Backend 是独立项目。
 
-Worker 只负责接收 Telegram webhook 并写入 Redis 队列，Telegram API 操作由 Backend 直接执行。
+Worker 只负责接收 Telegram webhook 并写入 Redis Hash，Telegram API 操作由 Backend 直接执行。
 
 ---
 
@@ -202,8 +202,17 @@ npm run tail
 ### Redis 监控
 
 ```bash
-# 查看队列长度
-curl "{REDIS_ENDPOINT}/llen/{REDIS_TOKEN}?args=backend_queue"
+# 查看所有消息
+curl -X POST \
+  -H "Authorization: Bearer {REDIS_TOKEN}" \
+  "{REDIS_ENDPOINT}" \
+  -d '["HGETALL", "messages"]'
+
+# 查看消息数量
+curl -X POST \
+  -H "Authorization: Bearer {REDIS_TOKEN}" \
+  "{REDIS_ENDPOINT}" \
+  -d '["HLEN", "messages"]'
 ```
 
 ---
