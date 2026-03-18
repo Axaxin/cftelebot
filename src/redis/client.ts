@@ -3,15 +3,17 @@ import type { Env } from "../types";
 async function redisCommand(
   env: Env,
   command: string,
-  args: string[]
-): Promise<{ result?: string | null }> {
-  const url = `${env.REDIS_ENDPOINT}/${command}/${env.REDIS_TOKEN}?${args
-    .map((a) => `args=${encodeURIComponent(a)}`)
-    .join("&")}`;
+  args: (string | number)[]
+): Promise<{ result?: unknown }> {
+  const url = `${env.REDIS_ENDPOINT}/${command}`;
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.REDIS_TOKEN}` },
+    headers: {
+      Authorization: `Bearer ${env.REDIS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
   });
 
   return response.json();
@@ -31,7 +33,7 @@ export async function redisRPop<T = unknown>(
 ): Promise<T | null> {
   const result = await redisCommand(env, "rpop", [key]);
   if (result.result) {
-    return JSON.parse(result.result);
+    return JSON.parse(result.result as string);
   }
   return null;
 }
