@@ -3,25 +3,20 @@ import type { Env } from "../types";
 async function redisCommand(
   env: Env,
   command: string,
-  args: (string | number)[]
+  args: string[]
 ): Promise<{ result?: unknown; error?: string }> {
-  const url = `${env.REDIS_ENDPOINT}/${command}`;
-
-  console.log(`Redis command: ${command}, args: ${JSON.stringify(args)}`);
-  console.log(`Redis endpoint: ${env.REDIS_ENDPOINT}`);
+  // Upstash REST API 使用 URL 路径格式
+  const path = args.map(encodeURIComponent).join("/");
+  const url = `${env.REDIS_ENDPOINT}/${command}/${path}`;
 
   const response = await fetch(url, {
-    method: "POST",
+    method: "GET",
     headers: {
       Authorization: `Bearer ${env.REDIS_TOKEN}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(args),
   });
 
-  const result = await response.json();
-  console.log(`Redis response: ${JSON.stringify(result)}`);
-  return result;
+  return response.json();
 }
 
 export async function redisLPush(
