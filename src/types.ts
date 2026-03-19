@@ -4,6 +4,7 @@ export interface Env {
   REDIS_ENDPOINT: string;
   REDIS_TOKEN: string;
   ALLOW_USERIDS: string; // 逗号分隔的用户 ID
+  API_TOKEN: string; // Bearer token for /api/* proxy endpoints
 }
 
 // ============ 消息记录 ============

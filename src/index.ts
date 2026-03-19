@@ -1,4 +1,5 @@
 import { handleTelegramWebhook } from "./handlers/telegram";
+import { handleTelegramProxy } from "./handlers/telegram_proxy";
 import type { Env } from "./types";
 
 export default {
@@ -16,6 +17,12 @@ export default {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Telegram API proxy
+    const apiMatch = url.pathname.match(/^\/api\/(\w+)$/);
+    if (apiMatch && request.method === "POST") {
+      return handleTelegramProxy(request, env, apiMatch[1]);
     }
 
     return new Response("Not Found", { status: 404 });
