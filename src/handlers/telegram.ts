@@ -53,6 +53,39 @@ export async function handleTelegramWebhook(
 ): Promise<Response> {
   const update: TelegramUpdate = await request.json();
 
+  // 处理 callback_query（内联键盘按钮点击）
+  if (update.callback_query) {
+    const cq = update.callback_query;
+    const userId = cq.from.id;
+
+    if (!isUserAllowed(userId, env.ALLOW_USERIDS)) {
+      return new Response("OK", { status: 200 });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const msgId = `msg_${now}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const callbackRecord: Message = {
+      msg_id: msgId,
+      chat_id: cq.message.chat.id,
+      user_id: userId,
+      username: cq.from.username || cq.from.first_name || "",
+      message_type: "callback",
+      created_at: now,
+      ack_message_id: null,
+      ack_status: "pending",
+      message_status: "fresh",
+      processed_at: null,
+      callback_id: cq.id,
+      callback_data: cq.data ?? "",
+      message_id: String(cq.message.message_id),
+      raw_message: cq,
+    };
+
+    await saveMessage(env, callbackRecord);
+    return new Response("OK", { status: 200 });
+  }
+
   if (!update.message) {
     return new Response("OK", { status: 200 });
   }
@@ -104,6 +137,10 @@ export async function handleTelegramWebhook(
     ack_status: "pending",
     message_status: "fresh",
     processed_at: null,
+    // callback_query 专用字段（普通消息留空）
+    callback_id: "",
+    callback_data: "",
+    message_id: "",
     // 原始消息
     raw_message: message,
   };

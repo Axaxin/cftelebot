@@ -26,6 +26,7 @@ export type MessageType =
   | "poll"
   | "dice"
   | "game"
+  | "callback"
   | "other";
 
 export interface Message {
@@ -43,15 +44,36 @@ export interface Message {
   message_status: "fresh" | "processing" | "processed";
   processed_at: number | null;
 
-  // === 原始 Telegram Message ===
-  raw_message: TelegramMessage;
+  // === callback_query 专用字段（非 callback 时为空字符串）===
+  callback_id: string;
+  callback_data: string;
+  message_id: string;
+
+  // === 原始 Telegram Message / CallbackQuery ===
+  raw_message: TelegramMessage | TelegramCallbackQuery;
 }
 
 // ============ Telegram Webhook Update ============
 export interface TelegramUpdate {
   update_id?: number;
   message?: TelegramMessage;
-  // 其他 update 类型暂不处理
+  callback_query?: TelegramCallbackQuery;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  from: {
+    id: number;
+    is_bot?: boolean;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    language_code?: string;
+    [key: string]: unknown;
+  };
+  message: TelegramMessage;
+  data?: string;
+  [key: string]: unknown;
 }
 
 // 宽松定义，接受 Telegram API 返回的完整 Message 对象

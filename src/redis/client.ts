@@ -24,6 +24,9 @@ export async function saveMessage(env: Env, message: Message): Promise<void> {
     ack_status: message.ack_status,
     message_status: message.message_status,
     processed_at: message.processed_at ?? "",
+    callback_id: message.callback_id,
+    callback_data: message.callback_data,
+    message_id: message.message_id,
     raw_message: JSON.stringify(message.raw_message),
   });
 }
